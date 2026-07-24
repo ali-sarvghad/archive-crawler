@@ -1,0 +1,4 @@
+requests>=2.28
+PyYAML>=6.0
+# Optional: only needed for --fulltext PDF introduction extraction.
+pypdf>=4.0

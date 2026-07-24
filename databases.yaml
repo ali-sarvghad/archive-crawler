@@ -1,0 +1,39 @@
+# User-defined crawl targets ("databases").
+#
+# Each entry names a venue and the backend used to reach it. `venue` is matched
+# against the backend's catalog:
+#   - openalex: resolved to an OpenAlex "source" (highest works-count match),
+#     or set it to an explicit source id like "S4306420956" to skip resolution.
+#   - crossref: matched as a substring against each result's container-title.
+#
+# Add your own entries freely, then crawl with:  --database <key>
+databases:
+  acm_chi:
+    label: "ACM CHI"
+    source: openalex
+    venue: "Proceedings of the CHI Conference on Human Factors in Computing Systems"
+
+  acm_uist:
+    label: "ACM UIST"
+    source: openalex
+    venue: "The Symposium on User Interface Software and Technology"
+
+  acm_cscw:
+    label: "ACM CSCW"
+    source: openalex
+    venue: "Proceedings of the ACM on Human-Computer Interaction"
+
+  acm_dis:
+    label: "ACM DIS"
+    source: openalex
+    venue: "Designing Interactive Systems"
+
+  ieee_vis:
+    label: "IEEE VIS"
+    source: openalex
+    venue: "IEEE Transactions on Visualization and Computer Graphics"
+
+  neurips:
+    label: "NeurIPS"
+    source: openalex
+    venue: "Neural Information Processing Systems"

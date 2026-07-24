@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "archive-crawler"
+version = "0.1.0"
+description = "Scrape scholarly paper metadata (abstract, intro, keywords, authors, year) from a venue you define, e.g. ACM CHI."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "requests>=2.28",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+fulltext = ["pypdf>=4.0"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+archive-crawler = "archive_crawler.cli:main"
+
+[tool.setuptools]
+packages = ["archive_crawler", "archive_crawler.sources"]
+
+[tool.setuptools.package-data]
+"*" = ["../databases.yaml"]
