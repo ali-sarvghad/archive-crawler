@@ -4,7 +4,7 @@ import { FORMATS, download } from "./exporters.js";
 
 // ---------- State ----------
 const state = {
-  venue: null,            // { id, name }
+  venues: [],             // [{ id, name, chip? }] — one or more selected venues
   results: [],            // loaded papers
   selected: new Map(),    // id -> paper
   page: 0,
@@ -90,38 +90,69 @@ function renderChips() {
   CURATED_VENUES.forEach((v) => {
     const chip = el("button", "chip", esc(v.label));
     chip.type = "button";
-    if (state.venue && state.venue._chip === v.label) chip.classList.add("active");
+    if (state.venues.some((sv) => sv.chip === v.label)) chip.classList.add("active");
     chip.addEventListener("click", () => selectCuratedVenue(v, chip));
     wrap.appendChild(chip);
   });
 }
 
-async function selectCuratedVenue(v, chipEl) {
-  venueInput.value = v.label + " …";
-  try {
-    const resolved = await resolveVenue(v.query, { mailto: settings.mailto });
-    setVenue({ ...resolved, _chip: v.label });
-    venueInput.value = resolved.name;
-  } catch (e) {
-    toast(e.message, true);
-    venueInput.value = "";
-  }
+// Render the currently selected venues as removable pills.
+function renderSelectedVenues() {
+  const wrap = $("#venue-selected");
+  wrap.innerHTML = "";
+  state.venues.forEach((v) => {
+    const pill = el("span", "venue-pill");
+    pill.innerHTML = `<span class="vp-name">${esc(v.name)}</span>`;
+    const x = el("button", null, "&times;");
+    x.type = "button";
+    x.title = "Remove venue";
+    x.setAttribute("aria-label", `Remove ${v.name}`);
+    x.addEventListener("click", () => removeVenue(v.id));
+    pill.appendChild(x);
+    wrap.appendChild(pill);
+  });
 }
 
-function setVenue(v) {
-  state.venue = v;
-  $("#venue-clear").hidden = !v;
+function addVenue(v) {
+  if (state.venues.some((sv) => sv.id === v.id)) {
+    toast(`"${v.name}" is already added`);
+    return;
+  }
+  state.venues.push(v);
+  renderSelectedVenues();
   renderChips();
   hideSuggestions();
 }
 
-function clearVenue() {
-  state.venue = null;
-  venueInput.value = "";
-  $("#venue-clear").hidden = true;
+function removeVenue(id) {
+  state.venues = state.venues.filter((v) => v.id !== id);
+  renderSelectedVenues();
   renderChips();
 }
-$("#venue-clear").addEventListener("click", clearVenue);
+
+async function selectCuratedVenue(v, chipEl) {
+  chipEl.classList.add("loading");
+  const prev = chipEl.textContent;
+  chipEl.textContent = v.label + " …";
+  try {
+    const resolved = await resolveVenue(v.query, { mailto: settings.mailto });
+    addVenue({ ...resolved, chip: v.label });
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    chipEl.textContent = prev;
+    chipEl.classList.remove("loading");
+  }
+}
+
+// The inline clear button just empties the typed text (venues are pills now).
+function clearVenueInput() {
+  venueInput.value = "";
+  $("#venue-clear").hidden = true;
+  hideSuggestions();
+  venueInput.focus();
+}
+$("#venue-clear").addEventListener("click", clearVenueInput);
 
 function hideSuggestions() {
   suggestions.hidden = true;
@@ -153,8 +184,8 @@ async function runVenueSearch(q) {
         `<span class="s-name">${esc(m.name)}</span>` +
         `<span class="s-meta">${m.worksCount.toLocaleString()} works${m.type ? " · " + esc(m.type) : ""}</span>`;
       li.addEventListener("click", () => {
-        setVenue({ id: m.id, name: m.name });
-        venueInput.value = m.name;
+        addVenue({ id: m.id, name: m.name });
+        clearVenueInput();
       });
       suggestions.appendChild(li);
     });
@@ -168,7 +199,6 @@ async function runVenueSearch(q) {
 
 venueInput.addEventListener("input", () => {
   const q = venueInput.value.trim();
-  if (state.venue) { state.venue = null; renderChips(); } // drop any active chip
   $("#venue-clear").hidden = !q;
   clearTimeout(venueDebounce);
   if (q.length < 2) { hideSuggestions(); return; }
@@ -197,7 +227,7 @@ function currentFilters() {
   const yt = $("#year-to").value.trim();
   return {
     query: $("#query").value.trim(),
-    venueId: state.venue ? state.venue.id : null,
+    venueIds: state.venues.map((v) => v.id),
     yearFrom: yf ? Number(yf) : null,
     yearTo: yt ? Number(yt) : null,
     openAccessOnly: $("#oa-only").checked,
@@ -218,8 +248,8 @@ function showSkeletons(n = 4) {
 
 async function doSearch(reset = true) {
   const filters = currentFilters();
-  if (!filters.query && !filters.venueId) {
-    toast("Enter search terms or pick a venue first", true);
+  if (!filters.query && !filters.venueIds.length) {
+    toast("Enter search terms or add a venue first", true);
     return;
   }
   if (reset) {
@@ -419,7 +449,9 @@ async function runExport(fmt, fetchAll) {
   const f = FORMATS[fmt];
   const content = f.fn(papers);
   const stamp = new Date().toISOString().slice(0, 10);
-  const venueSlug = state.venue ? "-" + state.venue.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24) : "";
+  const venueSlug = state.venues.length
+    ? "-" + state.venues[0].name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)
+    : "";
   download(content, `papers${venueSlug}-${stamp}.${f.ext}`, f.mime);
   toast(`Exported ${papers.length} paper${papers.length === 1 ? "" : "s"} as ${f.label}`);
 }
@@ -455,7 +487,10 @@ async function fetchAllMatching() {
 function updateHash(f) {
   const params = new URLSearchParams();
   if (f.query) params.set("q", f.query);
-  if (state.venue) { params.set("vid", state.venue.id); params.set("vname", state.venue.name); }
+  if (state.venues.length) {
+    // Compact, comma-safe encoding: "id:name;;id:name".
+    params.set("venues", state.venues.map((v) => `${v.id}:${v.name}`).join(";;"));
+  }
   if (f.yearFrom) params.set("from", f.yearFrom);
   if (f.yearTo) params.set("to", f.yearTo);
   if (f.openAccessOnly) params.set("oa", "1");
@@ -468,9 +503,14 @@ function loadFromHash() {
   const params = new URLSearchParams(location.hash.slice(1));
   if (![...params.keys()].length) return false;
   $("#query").value = params.get("q") || "";
-  if (params.get("vid")) {
-    setVenue({ id: params.get("vid"), name: params.get("vname") || params.get("vid") });
-    venueInput.value = params.get("vname") || params.get("vid");
+  if (params.get("venues")) {
+    params.get("venues").split(";;").forEach((entry) => {
+      const idx = entry.indexOf(":");
+      if (idx > 0) addVenue({ id: entry.slice(0, idx), name: entry.slice(idx + 1) });
+    });
+  } else if (params.get("vid")) {
+    // Backward compatibility with older single-venue links.
+    addVenue({ id: params.get("vid"), name: params.get("vname") || params.get("vid") });
   }
   if (params.get("from")) $("#year-from").value = params.get("from");
   if (params.get("to")) $("#year-to").value = params.get("to");

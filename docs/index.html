@@ -45,12 +45,13 @@
       </div>
 
       <div class="field field-venue">
-        <label for="venue-input">Venue / database</label>
+        <label for="venue-input">Venues / databases <span class="muted">(add one or more)</span></label>
         <div class="venue-combo">
-          <input id="venue-input" type="text" placeholder="Type a conference or journal…" autocomplete="off" aria-expanded="false" aria-controls="venue-suggestions" />
-          <button id="venue-clear" class="venue-clear" title="Clear venue" aria-label="Clear venue" hidden>&times;</button>
+          <input id="venue-input" type="text" placeholder="Type a conference or journal, then pick a match…" autocomplete="off" aria-expanded="false" aria-controls="venue-suggestions" />
+          <button id="venue-clear" class="venue-clear" title="Clear text" aria-label="Clear text" hidden>&times;</button>
           <ul id="venue-suggestions" class="suggestions" role="listbox" hidden></ul>
         </div>
+        <div id="venue-selected" class="venue-pills"></div>
         <div id="venue-chips" class="chips"></div>
       </div>
 

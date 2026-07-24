@@ -102,13 +102,39 @@ export async function searchSources(query, { mailto, perPage = 15 } = {}) {
   }));
 }
 
-/** Resolve a free-text venue name to the highest-works-count source id. */
+/**
+ * Score how well a candidate source matches a target venue name. Name match
+ * dominates (an exact/near-exact title beats a huge unrelated journal), with
+ * works-count and conference type as gentle tie-breakers. This fixes chips
+ * like "ACM CHI" that previously resolved to whichever match had the most
+ * works rather than the actual proceedings.
+ */
+function scoreSource(cand, query) {
+  const n = (cand.name || "").toLowerCase().trim();
+  const q = query.toLowerCase().trim();
+  let score = 0;
+  if (n === q) score += 1000;
+  else if (n.includes(q)) score += 500;
+  const qTokens = q.split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+  if (qTokens.length) {
+    const overlap = qTokens.filter((t) => n.includes(t)).length / qTokens.length;
+    score += overlap * 300;
+  }
+  if (cand.type && /conference|proceedings/i.test(cand.type)) score += 40;
+  // Log-scaled so a mega-journal can't overpower a strong name match.
+  score += Math.log10((cand.worksCount || 0) + 1) * 8;
+  return score;
+}
+
+/** Resolve a free-text venue name to the best-matching source id. */
 export async function resolveVenue(name, opts = {}) {
   if (/^S\d+$/.test(name)) return { id: name, name };
   if (_sourceCache.has(name)) return _sourceCache.get(name);
   const matches = await searchSources(name, { ...opts, perPage: 25 });
   if (!matches.length) throw new Error(`No venue matched "${name}"`);
-  const best = matches.reduce((a, b) => (b.worksCount > a.worksCount ? b : a));
+  const best = matches.reduce((a, b) =>
+    scoreSource(b, name) > scoreSource(a, name) ? b : a
+  );
   const resolved = { id: best.id, name: best.name };
   _sourceCache.set(name, resolved);
   return resolved;
@@ -116,12 +142,13 @@ export async function resolveVenue(name, opts = {}) {
 
 /**
  * Search works. Returns { papers, total, page, perPage, hasMore }.
- * `filters` supports: query, venueId, yearFrom, yearTo, openAccessOnly, sort.
+ * `filters` supports: query, venueIds (array, OR-ed), yearFrom, yearTo,
+ * openAccessOnly, sort.
  */
 export async function searchWorks(filters = {}, { mailto, page = 1, perPage = 25 } = {}) {
   const {
     query,
-    venueId,
+    venueIds = [],
     yearFrom,
     yearTo,
     openAccessOnly = false,
@@ -129,7 +156,10 @@ export async function searchWorks(filters = {}, { mailto, page = 1, perPage = 25
   } = filters;
 
   const filterParts = [];
-  if (venueId) filterParts.push(`primary_location.source.id:${venueId}`);
+  // OpenAlex OR-s values within one filter key using "|".
+  if (venueIds.length) {
+    filterParts.push(`primary_location.source.id:${venueIds.join("|")}`);
+  }
   if (yearFrom) filterParts.push(`from_publication_date:${yearFrom}-01-01`);
   if (yearTo) filterParts.push(`to_publication_date:${yearTo}-12-31`);
   if (openAccessOnly) filterParts.push("open_access.is_oa:true");
