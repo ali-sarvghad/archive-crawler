@@ -1,17 +1,17 @@
 name: Deploy web app to GitHub Pages
 
-# Publishes the static site in ./docs to GitHub Pages.
+# OPTIONAL Actions-based deploy. Use this only if you set
+# Settings -> Pages -> Source = "GitHub Actions".
 #
-# One-time setup: in your repo, open Settings -> Pages and set
-# "Build and deployment" -> Source to "GitHub Actions".
+# The simplest path needs NO workflow at all:
+#   Settings -> Pages -> Source = "Deploy from a branch"
+#   -> pick this branch and the "/docs" folder -> Save.
 #
-# Alternatively (no Actions needed) you can pick Source = "Deploy from a branch",
-# choose your branch and the "/docs" folder — the site is fully static.
+# NOTE: GitHub does not allow a workflow to enable Pages for the first time
+# ("Resource not accessible by integration"). Pages must be turned on once in
+# Settings; after that this workflow can deploy on demand.
 
 on:
-  push:
-    branches: [main, master, "claude/**"]
-    paths: ["docs/**", ".github/workflows/deploy-pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,6 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; newer pushes cancel in-progress runs.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -36,10 +35,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          # Enable Pages (build type = GitHub Actions) if it isn't already,
-          # so the first deploy works without visiting repo Settings.
-          enablement: true
 
       - name: Upload static site (./docs)
         uses: actions/upload-pages-artifact@v3
