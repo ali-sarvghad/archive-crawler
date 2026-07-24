@@ -1,0 +1,47 @@
+name: Deploy web app to GitHub Pages
+
+# Publishes the static site in ./docs to GitHub Pages.
+#
+# One-time setup: in your repo, open Settings -> Pages and set
+# "Build and deployment" -> Source to "GitHub Actions".
+#
+# Alternatively (no Actions needed) you can pick Source = "Deploy from a branch",
+# choose your branch and the "/docs" folder — the site is fully static.
+
+on:
+  push:
+    branches: [main, master, "claude/**"]
+    paths: ["docs/**", ".github/workflows/deploy-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; newer pushes cancel in-progress runs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site (./docs)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -3,7 +3,62 @@
 Scrape scholarly **paper metadata** — abstract, introduction, keywords, authors,
 and publication year — from a **database (venue) you define**, such as ACM CHI.
 
-## Why it works this way (please read)
+This repo has two parts:
+
+1. **🌐 Web app** (`docs/`) — a modern, shareable browser UI to search & export
+   papers. Runs on **GitHub Pages** with no server. **[See below](#-web-app-github-pages).**
+2. **🐍 Python crawler** (`archive_crawler/`) — a CLI + library for scripted,
+   large-scale crawls. **[Jump to it](#-python-crawler-cli--library).**
+
+---
+
+## 🌐 Web app (GitHub Pages)
+
+A static single-page app that searches OpenAlex **directly from the browser**
+(OpenAlex is CORS-enabled, so no backend is needed — which is exactly why it can
+live on GitHub Pages). Share it as a plain URL.
+
+**Features**
+
+- 🔎 Full-text search within any venue, with a live **venue autocomplete** plus
+  one-click chips (ACM CHI, UIST, CSCW, DIS, IEEE VIS, NeurIPS, ICML, ACL, CVPR…)
+- 🗓 Year-range and **open-access-only** filters; sort by relevance / date / citations
+- 🃏 Rich result cards: abstract (expandable), keyword tags, authors, venue,
+  citation count, and DOI / landing-page / open-access links
+- ✅ Select individual papers or everything, then **export to CSV, JSON, BibTeX,
+  or RIS** (import straight into Zotero / Mendeley / EndNote)
+- 📦 "Fetch all matching results" to export an entire query, not just what's on screen
+- 🔗 **Shareable search links** — the URL captures your query & filters, so a
+  collaborator opens the exact same results
+- 🌗 Light/dark theme, responsive, keyboard-friendly; settings (contact email for
+  the API "polite pool") stored locally in the browser
+
+**Deploy it (2 minutes)**
+
+Once this branch is on GitHub, pick either option:
+
+- **Option A — Deploy from a branch (simplest):** repo **Settings → Pages →
+  Build and deployment → Source: _Deploy from a branch_**, choose your branch and
+  the **`/docs`** folder, Save. Your site appears at
+  `https://<user>.github.io/<repo>/`.
+- **Option B — GitHub Actions:** **Settings → Pages → Source: _GitHub Actions_**.
+  The included [`deploy-pages.yml`](.github/workflows/deploy-pages.yml) workflow
+  publishes `docs/` on every push.
+
+**Run it locally**
+
+```bash
+cd docs && python3 -m http.server 8000   # then open http://localhost:8000
+```
+
+(A static server is needed because the app uses ES modules; opening `index.html`
+via `file://` won't load them.)
+
+---
+
+## 🐍 Python crawler (CLI & library)
+
+### Why it works this way (please read)
 
 Directly scraping the ACM Digital Library's web pages **violates its Terms of
 Service** and is blocked by anti-bot protection and login walls. Instead, this
