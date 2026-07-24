@@ -36,6 +36,10 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (build type = GitHub Actions) if it isn't already,
+          # so the first deploy works without visiting repo Settings.
+          enablement: true
 
       - name: Upload static site (./docs)
         uses: actions/upload-pages-artifact@v3
